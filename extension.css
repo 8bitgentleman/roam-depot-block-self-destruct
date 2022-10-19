@@ -1,0 +1,7 @@
+.rm-settings  input[type="number"].self-destruct-input {
+    background-color: #182026;
+    border: 1px #394B59 solid;
+    border-radius: 5px;
+    padding: 7px 10px;
+    color: white;
+}
