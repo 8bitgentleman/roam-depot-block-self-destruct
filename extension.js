@@ -27,6 +27,58 @@ function getPageRefs(pageName) {
         [?r :block/refs ?p]
         [?r :block/page ?pr]]`
     return window.roamAlphaAPI.q(queryText, pageName);
+    
+}
+function getPageRefsNoAttribute(attribute, pageName){
+    let query = `[:find (pull ?node [:block/string :create/time :block/uid])
+        :in $ ?attrTitle ?destructTitle
+        :where
+        [?self-destruct :node/title ?destructTitle]   
+        [?node :block/refs ?self-destruct]
+        (not [?DestructTime-Attribute :node/title ?attrTitle]
+            [?DestructTime :block/refs ?DestructTime-Attribute]
+            [?DestructTime :block/parents ?node])
+        ]`
+
+    let result = window.roamAlphaAPI.q(query,attribute, pageName).flat();
+            
+    return result;
+}
+
+function getPageRefsWithAttribute(attribute, pageName){
+    let query = `[:find (pull ?node [:block/string :create/time :block/uid])
+        :in $ ?attrTitle ?destructTitle
+        :where
+        [?self-destruct :node/title ?destructTitle]   
+        [?node :block/refs ?self-destruct]
+        [?node :create/time ?created]
+        [?node :block/uid ?uid]
+        [?DestructTime-Attribute :node/title ?attrTitle]
+        [?DestructTime :block/refs ?DestructTime-Attribute]
+        [?DestructTime :block/parents ?node]
+        [?DestructTime :block/string ?delay]
+        ]`
+
+    let result = window.roamAlphaAPI.q(query,attribute, pageName).flat();
+            
+    return result;
+}
+
+function getBlockWithAttribute(attribute, pageName){
+    let query = `[:find
+        (pull ?node [:block/string :node/title :block/uid :block/parents {:block/parents ...}])
+        :in $ ?attrTitle ?destructTitle
+        :where
+            [?DestructDelay :node/title ?attrTitle]
+            [?self-destruct :node/title ?destructTitle]
+            [?node :block/refs ?DestructDelay]
+            [?Parent :block/children ?node]
+            [?Parent :block/refs ?self-destruct]
+        ]`
+
+    let result = window.roamAlphaAPI.q(query,attribute, pageName).flat();
+            
+    return result;
 }
 
 async function onload({extensionAPI}) {
@@ -51,8 +103,8 @@ async function onload({extensionAPI}) {
                       onChange:	(evt) => { console.log( evt.target.value); }}},
     
             {id:	 "timer",
-             name:   "Days until blocks self-destruct",
-             action: {type:	 "reactComponent",
+            description: React.createElement('span',null,'Days until blocks self-destruct. This can be overridden with the ',React.createElement('code', null, 'Destruct Time::'),' attribute'),
+            action: {type:	 "reactComponent",
                       component: wrappedTimeConfig}}
         ]
     };
@@ -75,7 +127,6 @@ async function onload({extensionAPI}) {
             console.log("delete", block)
             window.roamAlphaAPI.deleteBlock({"block":{"uid": block[0]['uid']}})
         }
-        
     });
 
     console.log("load self-destruct plugin");

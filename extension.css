@@ -5,3 +5,7 @@
     padding: 7px 10px;
     color: white;
 }
+
+span.rm-page-ref--tag[data-tag="self-destruct"]:before {
+    content: '⏱ ';
+}
