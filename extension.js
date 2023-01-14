@@ -29,6 +29,7 @@ function getPageRefs(pageName) {
     return window.roamAlphaAPI.q(queryText, pageName);
     
 }
+
 function getPageRefsNoAttribute(attribute, pageName){
     let query = `[:find (pull ?node [:block/string :create/time :block/uid])
         :in $ ?attrTitle ?destructTitle
@@ -66,7 +67,7 @@ function getPageRefsWithAttribute(attribute, pageName){
 
 function getBlockWithAttribute(attribute, pageName){
     let query = `[:find
-        (pull ?node [:block/string :node/title :block/uid :block/parents {:block/parents ...}])
+        (pull ?node [:block/string :node/title :block/uid :create/time :block/parents {:block/parents ...}])
         :in $ ?attrTitle ?destructTitle
         :where
             [?DestructDelay :node/title ?attrTitle]
@@ -86,49 +87,92 @@ async function onload({extensionAPI}) {
     if (!extensionAPI.settings.get('tag')) {
         await extensionAPI.settings.set('tag', "self-destruct");
     }
+    if (!extensionAPI.settings.get('attribute')) {
+        await extensionAPI.settings.set('attribute', "Destruct Delay");
+    }
     if (!extensionAPI.settings.get('timer')) {
         await extensionAPI.settings.set('timer', 1);
     }
 
-    // let the react component access extensionAPI
+    // wrap the react component so it can access extensionAPI
     const wrappedTimeConfig = () => timeButton({ extensionAPI });
-
     const panelConfig = {
         tabTitle: "Self-Destruct block",
         settings: [
             {id:	 "tag",
              name:   "Self-destruct tag",
              action: {type:		"input",
-                      placeholder: "self-destruct",
-                      onChange:	(evt) => { console.log( evt.target.value); }}},
+                      placeholder: "self-destruct"}},
     
             {id:	 "timer",
-            description: React.createElement('span',null,'Days until blocks self-destruct. This can be overridden with the ',React.createElement('code', null, 'Destruct Time::'),' attribute'),
+            name:   "Time Delay",
+            description: React.createElement('p',{className: 'rm-settings-panel__description'},'Days until blocks self-destruct. This can be overridden with the ',React.createElement('b', null, 'Custom Time Attribute'),' attribute'),
             action: {type:	 "reactComponent",
-                      component: wrappedTimeConfig}}
+                      component: wrappedTimeConfig}},
+            
+                      {id:	 "attribute",
+            name:   "Custom Time Attribute",
+            action: {type:		"input",
+                    placeholder: "Destruct Delay"}},
         ]
     };
-
     extensionAPI.settings.panel.create(panelConfig);
-
-    // get all the refs for the self-destruct page
-    let pageRefs = getPageRefs(await extensionAPI.settings.get('tag'))
-
+    
+    // first find all the refs for the self-destruct page without a custom attribute
+    let pageRefsNoAttribute = getPageRefsNoAttribute(
+        await extensionAPI.settings.get('attribute'),
+        await extensionAPI.settings.get('tag')
+        )
     // for each block check if it's older than the self-destruct limit. If so delete the block
     // I only check this on plugin load. This seems far simpler since I assume most people don't keep roam open infinitely 
-    // maybe a bad assumption...
 
-    pageRefs.forEach(block => {
-        let createTime = block[0]['time'];
+    pageRefsNoAttribute.forEach(block => {
+        let createTime = block['time'];
         let numDays = extensionAPI.settings.get('timer')
+        // convert to days and do time math
         let offsetTime = new Date().getTime() - (numDays * 24 * 60 * 60 * 1000)
-        console.log("offset days", numDays, offsetTime)
         if (createTime<offsetTime) {
-            console.log("delete", block)
-            window.roamAlphaAPI.deleteBlock({"block":{"uid": block[0]['uid']}})
+            // if block is older than the timer delete it
+            window.roamAlphaAPI.deleteBlock({"block":{"uid": block['uid']}})
+            console.log(`self-destricting block ${block['uid']} - ${offsetTime} days old`);
         }
     });
+    // bit more complicated for blocks with custom attributes
+    // structure is assumed to be like this
+    // - Parent Block #self-destruct
+    //        -Destruct Delay::3
+    let blockWithAttribute = getBlockWithAttribute(
+        await extensionAPI.settings.get('attribute'),
+        await await extensionAPI.settings.get('tag')
+    );
+    blockWithAttribute.forEach(block => {
+        // split out the custom time delay from  ATTRIBUTE::VALUE
+        let numDays = block['string'].split("::")[1];
+        numDays = Number(numDays);
+        if (!isNaN(numDays)){
+          //if attr value is a number do time math
+          let createTime = block['time'];
+          let offsetTime = new Date().getTime() - (numDays * 24 * 60 * 60 * 1000);
+          // if block is older than the custime time delay then delete it
+          if (createTime<offsetTime) {
+            //find the parent block that actually contains the self-destruct tag and delete that
+            let tag = extensionAPI.settings.get('tag');
+            //searching with regex for any of the various roam page/tag syntax
+            let pattern = new RegExp(`#${tag}|\\[\\[${tag}\\]\\]|#\\[\\[${tag}\\]\\]`, "i");
+            let parents = block.parents.filter(child => child.string && pattern.test(child.string));
+            //cycle through and delete all the blocks that match
+            parents.forEach(parent => {
+                window.roamAlphaAPI.deleteBlock({"block":{"uid": parent['uid']}})
+                console.log(`self-destricting block ${parent['uid']} - ${offsetTime} ms old`);
+            })
+            
+          }
+          
+        }
+        
+      });
 
+    
     console.log("load self-destruct plugin");
 }
 
