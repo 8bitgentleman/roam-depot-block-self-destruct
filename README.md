@@ -7,4 +7,5 @@ A custom deletion time can be set by nesting an attribute below the block that y
 - Using queries on your Daily Notes page or old queries in general.
 - Keeping your graph lean and clean
 
+### Examples
   <img src="https://github.com/8bitgentleman/roam-depot-block-self-destruct/raw/main/example.png" max-width="400"></img>
