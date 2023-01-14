@@ -19,17 +19,6 @@ function timeButton({ extensionAPI }) {
     );
 }
 
-function getPageRefs(pageName) {
-    let queryText = `[:find (pull ?r [:block/uid :create/time])
-        :in $ ?pagename   
-        :where
-        [?p :node/title ?pagename]
-        [?r :block/refs ?p]
-        [?r :block/page ?pr]]`
-    return window.roamAlphaAPI.q(queryText, pageName);
-    
-}
-
 function getPageRefsNoAttribute(attribute, pageName){
     let query = `[:find (pull ?node [:block/string :create/time :block/uid])
         :in $ ?attrTitle ?destructTitle
@@ -78,7 +67,7 @@ async function onload({extensionAPI}) {
     // wrap the react component so it can access extensionAPI
     const wrappedTimeConfig = () => timeButton({ extensionAPI });
     const panelConfig = {
-        tabTitle: "Self-Destruct block",
+        tabTitle: "Self-Destructing Blocks",
         settings: [
             {id:	 "tag",
              name:   "Self-destruct tag",
