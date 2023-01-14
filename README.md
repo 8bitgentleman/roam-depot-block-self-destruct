@@ -6,3 +6,5 @@ A custom deletion time can be set by nesting an attribute below the block that y
 - Using queries on your Daily Notes page. Repetitive
 - Blocks left over from daily templates 
 - Keeping your graph lean and clean
+
+  <img src="https://github.com/8bitgentleman/roam-depot-block-self-destruct/raw/main/example.png" max-width="400"></img>

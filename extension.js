@@ -46,25 +46,6 @@ function getPageRefsNoAttribute(attribute, pageName){
     return result;
 }
 
-function getPageRefsWithAttribute(attribute, pageName){
-    let query = `[:find (pull ?node [:block/string :create/time :block/uid])
-        :in $ ?attrTitle ?destructTitle
-        :where
-        [?self-destruct :node/title ?destructTitle]   
-        [?node :block/refs ?self-destruct]
-        [?node :create/time ?created]
-        [?node :block/uid ?uid]
-        [?DestructTime-Attribute :node/title ?attrTitle]
-        [?DestructTime :block/refs ?DestructTime-Attribute]
-        [?DestructTime :block/parents ?node]
-        [?DestructTime :block/string ?delay]
-        ]`
-
-    let result = window.roamAlphaAPI.q(query,attribute, pageName).flat();
-            
-    return result;
-}
-
 function getBlockWithAttribute(attribute, pageName){
     let query = `[:find
         (pull ?node [:block/string :node/title :block/uid :create/time :block/parents {:block/parents ...}])
