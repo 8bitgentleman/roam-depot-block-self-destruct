@@ -1,4 +1,9 @@
 
+// store observers globally so they can be disconnected 
+var runners = {
+    intervals: [],
+}
+
 function timeButton({ extensionAPI }) {
     // Declare a new state variable, which we'll call "count"
     const [count, setCount] = React.useState(extensionAPI.settings.get('timer'));
@@ -52,42 +57,7 @@ function getBlockWithAttribute(attribute, pageName){
     return result;
 }
 
-async function onload({extensionAPI}) {
-    // set defaults if they dont' exist
-    if (!extensionAPI.settings.get('tag')) {
-        await extensionAPI.settings.set('tag', "self-destruct");
-    }
-    if (!extensionAPI.settings.get('attribute')) {
-        await extensionAPI.settings.set('attribute', "Destruct Delay");
-    }
-    if (!extensionAPI.settings.get('timer')) {
-        await extensionAPI.settings.set('timer', 1);
-    }
-
-    // wrap the react component so it can access extensionAPI
-    const wrappedTimeConfig = () => timeButton({ extensionAPI });
-    const panelConfig = {
-        tabTitle: "Self-Destructing Blocks",
-        settings: [
-            {id:	 "tag",
-             name:   "Self-destruct tag",
-             action: {type:		"input",
-                      placeholder: "self-destruct"}},
-    
-            {id:	 "timer",
-            name:   "Time Delay",
-            description: React.createElement('p',{className: 'rm-settings-panel__description'},'Days until blocks self-destruct. This can be overridden with the ',React.createElement('b', null, 'Custom Time Attribute'),' attribute'),
-            action: {type:	 "reactComponent",
-                      component: wrappedTimeConfig}},
-            
-                      {id:	 "attribute",
-            name:   "Custom Time Attribute",
-            action: {type:		"input",
-                    placeholder: "Destruct Delay"}},
-        ]
-    };
-    extensionAPI.settings.panel.create(panelConfig);
-    
+async function selfDestruct({extensionAPI}){
     // first find all the refs for the self-destruct page without a custom attribute
     let pageRefsNoAttribute = getPageRefsNoAttribute(
         await extensionAPI.settings.get('attribute'),
@@ -142,11 +112,54 @@ async function onload({extensionAPI}) {
         
       });
 
+}
+
+async function onload({extensionAPI}) {
+    // set defaults if they dont' exist
+    if (!extensionAPI.settings.get('tag')) {
+        await extensionAPI.settings.set('tag', "self-destruct");
+    }
+    if (!extensionAPI.settings.get('attribute')) {
+        await extensionAPI.settings.set('attribute', "Destruct Delay");
+    }
+    if (!extensionAPI.settings.get('timer')) {
+        await extensionAPI.settings.set('timer', 1);
+    }
+
+    // wrap the react component so it can access extensionAPI
+    const wrappedTimeConfig = () => timeButton({ extensionAPI });
+    const panelConfig = {
+        tabTitle: "Self-Destructing Blocks",
+        settings: [
+            {id:	 "tag",
+             name:   "Self-destruct tag",
+             action: {type:		"input",
+                      placeholder: "self-destruct"}},
     
+            {id:	 "timer",
+            name:   "Time Delay",
+            description: React.createElement('p',{className: 'rm-settings-panel__description'},'Days until blocks self-destruct. This can be overridden with the ',React.createElement('b', null, 'Custom Time Attribute'),' attribute'),
+            action: {type:	 "reactComponent",
+                      component: wrappedTimeConfig}},
+            
+                      {id:	 "attribute",
+            name:   "Custom Time Attribute",
+            action: {type:		"input",
+                    placeholder: "Destruct Delay"}},
+        ]
+    };
+    extensionAPI.settings.panel.create(panelConfig);
+    
+    // run selfDestruct every hour
+    const intervalID = setInterval(selfDestruct, 60*60*1000)
+    // add the interval to runners so it can be removed later
+    runners['intervals'] = [intervalID]
     console.log("load self-destruct plugin");
 }
 
 function onunload() {
+    // iterate through intervals and remove
+    runners['intervals'].forEach((n) => clearInterval(n));
     console.log("unload self-destruct plugin");
 }
   
