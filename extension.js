@@ -97,7 +97,6 @@ async function onload({extensionAPI}) {
     // define the self destruction as a seperate function
     // this is within onload so it can access the extensionAPI
     async function selfDestruct(){
-        console.log("running self destruct")
         // first find all the refs for the self-destruct page without a custom attribute
         let pageRefsNoAttribute = getPageRefsNoAttribute(
             await extensionAPI.settings.get('attribute'),
@@ -156,15 +155,17 @@ async function onload({extensionAPI}) {
 
 
     // run selfDestruct every hour
+    // the setInterval fn does not allow passing of variables
+    // so I defined the fn within onload
     const intervalID = setInterval(selfDestruct, 60*60*1000)
  
-    // add the interval to runners so it can be removed later
+    // add the interval to global runners so it can be removed later
     runners['intervals'] = [intervalID]
     console.log("load self-destruct plugin");
 }
 
 function onunload() {
-    // iterate through intervals and remove
+    // iterate through runners and remove all setIntervals
     runners['intervals'].forEach((n) => clearInterval(n));
     console.log("unload self-destruct plugin");
 }
