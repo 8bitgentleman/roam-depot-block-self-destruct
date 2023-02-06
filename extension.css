@@ -6,6 +6,7 @@
     color: white;
 }
 
-span.rm-page-ref--tag[data-tag="self-destruct"]:before {
+span.rm-page-ref--tag[data-tag="self-destruct"]:before,
+span[data-link-title="self-destruct"]:before{
     content: '⏱ ';
 }
