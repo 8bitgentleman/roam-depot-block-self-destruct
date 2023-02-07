@@ -26,14 +26,17 @@ function timeButton({ extensionAPI }) {
 
 function getPageRefsNoAttribute(attribute, pageName){
     let query = `[:find (pull ?node [:block/string :create/time :block/uid])
-        :in $ ?attrTitle ?destructTitle
-        :where
-        [?self-destruct :node/title ?destructTitle]   
-        [?node :block/refs ?self-destruct]
-        (not [?DestructTime-Attribute :node/title ?attrTitle]
-            [?DestructTime :block/refs ?DestructTime-Attribute]
-            [?DestructTime :block/parents ?node])
-        ]`
+    :in $ ?attrTitle ?destructTitle
+    :where
+    [?self-destruct :node/title ?destructTitle]   
+    [?node :block/refs ?self-destruct]
+    (not [?DestructTime-Attribute :node/title ?attrTitle]
+        [?DestructTime :block/refs ?DestructTime-Attribute]
+        [?DestructTime :block/parents ?node])
+    (not [?SmartBlock :node/title "SmartBlock"] [?node :block/refs ?SmartBlock])
+    (not [?roamtemplates :node/title "roam/templates"] [?node :block/refs ?roamtemplates])
+    (not [?42SmartBlock :node/title "42SmartBlock"] [?node :block/refs ?42SmartBlock])
+    ]`
 
     let result = window.roamAlphaAPI.q(query,attribute, pageName).flat();
             
@@ -50,12 +53,15 @@ function getBlockWithAttribute(attribute, pageName){
             [?node :block/refs ?DestructDelay]
             [?Parent :block/children ?node]
             [?Parent :block/refs ?self-destruct]
+            (not [?roamtemplates :node/title "roam/templates"] [?Parent :block/refs ?roamtemplates])
+            (not [?42SmartBlock :node/title "42SmartBlock"] [?Parent :block/refs ?42SmartBlock])
+            (not [?SmartBlock :node/title "SmartBlock"] [?Parent :block/refs ?SmartBlock])
         ]`
-
     let result = window.roamAlphaAPI.q(query,attribute, pageName).flat();
             
     return result;
 }
+
 
 
 async function onload({extensionAPI}) {
