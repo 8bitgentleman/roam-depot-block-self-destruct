@@ -4,7 +4,7 @@ var runners = {
     intervals: [],
 }
 // dev
-// const pluginStyleID = "plugin-style-uuid45d7760e-1027-4958-9d65-1b0e85b73a5a"
+// const pluginStyleID = "plugin-style-uuid023b75d6-b1fa-413d-8648-0d07a1ad35ed"
 // production
 const pluginStyleID = "plugin-style-8bitgentleman+self-destructing-blocks"
 const  pluginTagStyleID = `plugin-style-8bitgentleman+self-destructing-blocks+hide-tag`
@@ -41,6 +41,9 @@ function getPageRefsNoAttribute(attribute, pageName){
     (not [?SmartBlock :node/title "SmartBlock"] [?node :block/refs ?SmartBlock])
     (not [?roamtemplates :node/title "roam/templates"] [?node :block/refs ?roamtemplates])
     (not [?42SmartBlock :node/title "42SmartBlock"] [?node :block/refs ?42SmartBlock])
+    (not [?roamtemplates :node/title "roam/templates"] [?node :block/page ?roamtemplates])
+    (not [?SmartBlock :node/title "SmartBlock"] [?node :block/page ?SmartBlock])
+    (not [?42SmartBlock :node/title "42SmartBlock"] [?node :block/page ?42SmartBlock])
     ]`
 
     let result = window.roamAlphaAPI.q(query,attribute, pageName).flat();
@@ -61,6 +64,9 @@ function getBlockWithAttribute(attribute, pageName){
             (not [?roamtemplates :node/title "roam/templates"] [?Parent :block/refs ?roamtemplates])
             (not [?42SmartBlock :node/title "42SmartBlock"] [?Parent :block/refs ?42SmartBlock])
             (not [?SmartBlock :node/title "SmartBlock"] [?Parent :block/refs ?SmartBlock])
+            (not [?roamtemplates :node/title "roam/templates"] [?node :block/page ?roamtemplates])
+            (not [?SmartBlock :node/title "SmartBlock"] [?node :block/page ?SmartBlock])
+            (not [?42SmartBlock :node/title "42SmartBlock"] [?node :block/page ?42SmartBlock])
         ]`
     let result = window.roamAlphaAPI.q(query,attribute, pageName).flat();
             
@@ -214,7 +220,9 @@ async function onload({extensionAPI}) {
 
     }
 
-
+    // run the self-destruct on load once then run every hour. 
+    // Otherwise it looks like the extension doesn't do anything
+    await selfDestruct()
     // run selfDestruct every hour
     // the setInterval fn does not allow passing of variables
     // so I defined the fn within onload
