@@ -3,6 +3,11 @@
 var runners = {
     intervals: [],
 }
+// dev
+// const pluginStyleID = "plugin-style-uuid45d7760e-1027-4958-9d65-1b0e85b73a5a"
+// production
+const pluginStyleID = "plugin-style-8bitgentleman+self-destructing-blocks"
+const  pluginTagStyleID = `plugin-style-8bitgentleman+self-destructing-blocks+hide-tag`
 
 function timeButton({ extensionAPI }) {
     // Declare a new state variable, which we'll call "count"
@@ -62,17 +67,31 @@ function getBlockWithAttribute(attribute, pageName){
     return result;
 }
 
-
+function removeTagStyle(tag) {
+    if (document.getElementById(tag)) {
+      document.getElementById(tag).remove();
+    }
+  }
 
 async function onload({extensionAPI}) {
+    function hideTagStyle() {
+        var head = document.getElementsByTagName("head")[0];
+        var style = document.createElement("style");
+        style.id = pluginTagStyleID;
+        style.textContent =`
+            span.rm-page-ref--tag[data-tag="${extensionAPI.settings.get('tag')}"],
+            span[data-link-title="${extensionAPI.settings.get('tag')}"]{
+                display:none;
+            }
+        `
+        head.appendChild(style);
+    }
+
     // set defaults if they dont' exist
     if (!extensionAPI.settings.get('tag')) {
         await extensionAPI.settings.set('tag', "self-destruct");
     } else{
-        // dev
-        // let style = document.getElementById("plugin-style-uuidcba71194-f687-4a65-a3e8-620b7840096d");
-        // production
-        let style = document.getElementById("plugin-style-8bitgentleman+self-destructing-blocks");
+        let style = document.getElementById(pluginStyleID);
         // swap out the style to target the existing tag
         style.innerHTML = style.innerHTML.replace(/span\.rm-page-ref--tag\[data-tag="[^"]+"\]/g, `span.rm-page-ref--tag[data-tag="${extensionAPI.settings.get('tag')}"]`)
         style.innerHTML = style.innerHTML.replace(/span\[data-link-title="[^"]+"\]/g, `span[data-link-title="${extensionAPI.settings.get('tag')}"]`);
@@ -82,6 +101,9 @@ async function onload({extensionAPI}) {
     }
     if (!extensionAPI.settings.get('timer')) {
         await extensionAPI.settings.set('timer', 1);
+    }
+    if (extensionAPI.settings.get('hide-tag')==true) {
+        hideTagStyle()
     }
 
     // wrap the react component so it can access extensionAPI
@@ -94,12 +116,10 @@ async function onload({extensionAPI}) {
              action: {type:		"input",
                       placeholder: "self-destruct",
                       onChange:    (evt) => { 
-                        console.log(evt.target.value)
+                        // console.log(evt.target.value)
                         let tag = evt.target.value;
-                        // dev
-                        // let style = document.getElementById("plugin-style-uuidcba71194-f687-4a65-a3e8-620b7840096d");
-                        // production
-                        let style = document.getElementById("plugin-style-8bitgentleman+self-destructing-blocks");
+                        let style = document.getElementById(pluginStyleID);
+
                         // swap out the style to target the new tag
                         // is this some kind of race condition because setting via the API is async?
                         style.innerHTML = style.innerHTML.replace(/span\.rm-page-ref--tag\[data-tag="[^"]+"\]/g, `span.rm-page-ref--tag[data-tag="${tag}"]`)
@@ -117,8 +137,22 @@ async function onload({extensionAPI}) {
             name:   "Custom Time Attribute",
             action: {type:		"input",
                     placeholder: "Destruct Delay"}},
+            {id:         "hide-tag",
+            name:        "Hide Tag",
+            description: "Hides the self-destruct tag",
+            action:      {type:     "switch",
+                            onChange: (evt) => { 
+                            if (evt['target']['checked']) {
+                                // create some style to hide the tag
+                                hideTagStyle()
+                            } else{
+                               removeTagStyle(pluginTagStyleID)
+                            }
+                            }}}
         ]
     };
+
+
     extensionAPI.settings.panel.create(panelConfig);
     
     // define the self destruction as a seperate function
@@ -194,6 +228,8 @@ async function onload({extensionAPI}) {
 function onunload() {
     // iterate through runners and remove all setIntervals
     runners['intervals'].forEach((n) => clearInterval(n));
+    // remove tag-hiding css
+    removeTagStyle(pluginTagStyleID)
     console.log("unload self-destruct plugin");
 }
   
