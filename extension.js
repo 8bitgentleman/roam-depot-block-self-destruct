@@ -4,9 +4,9 @@ var runners = {
     intervals: [],
 }
 // dev
-// const pluginStyleID = "plugin-style-uuid023b75d6-b1fa-413d-8648-0d07a1ad35ed"
+const pluginStyleID = "plugin-style-uuida27d5cc2-8e61-4533-8c80-f47f555e9286"
 // production
-const pluginStyleID = "plugin-style-8bitgentleman+self-destructing-blocks"
+// const pluginStyleID = "plugin-style-8bitgentleman+self-destructing-blocks"
 const  pluginTagStyleID = `plugin-style-8bitgentleman+self-destructing-blocks+hide-tag`
 
 const templatePages = ["roam/templates", "Smartblock", "42SmartBlock"];
@@ -202,7 +202,7 @@ async function onload({extensionAPI}) {
 
         // for each block check if it's older than the self-destruct limit. If so delete the block
 
-        pageRefsNoAttribute.forEach(block => {
+        filteredBlocksNoAttribute.forEach(block => {
             let createTime = block['time'];
             let numDays = extensionAPI.settings.get('timer')
             // convert to days and do time math
