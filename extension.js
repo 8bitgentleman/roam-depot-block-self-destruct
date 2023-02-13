@@ -9,6 +9,8 @@ var runners = {
 const pluginStyleID = "plugin-style-8bitgentleman+self-destructing-blocks"
 const  pluginTagStyleID = `plugin-style-8bitgentleman+self-destructing-blocks+hide-tag`
 
+const templatePages = ["roam/templates", "Smartblock", "42SmartBlock"];
+
 function timeButton({ extensionAPI }) {
     // Declare a new state variable, which we'll call "count"
     const [count, setCount] = React.useState(extensionAPI.settings.get('timer'));
@@ -30,7 +32,7 @@ function timeButton({ extensionAPI }) {
 }
 
 function getPageRefsNoAttribute(attribute, pageName){
-    let query = `[:find (pull ?node [:block/string :create/time :block/uid])
+    let query = `[:find (pull ?node [:block/string :create/time :block/refs :node/title :block/uid :block/parents {:block/refs ...}{:block/parents ...}])
     :in $ ?attrTitle ?destructTitle
     :where
     [?self-destruct :node/title ?destructTitle]   
@@ -53,7 +55,7 @@ function getPageRefsNoAttribute(attribute, pageName){
 
 function getBlockWithAttribute(attribute, pageName){
     let query = `[:find
-        (pull ?node [:block/string :node/title :block/uid :create/time :block/parents {:block/parents ...}])
+        (pull ?node [:block/string :node/title :block/uid :create/time :block/parents :block/refs {:block/refs ...}{:block/parents ...}])
         :in $ ?attrTitle ?destructTitle
         :where
             [?DestructDelay :node/title ?attrTitle]
@@ -78,6 +80,27 @@ function removeTagStyle(tag) {
       document.getElementById(tag).remove();
     }
   }
+
+// loop through all the parents of a block searching for template pages
+// this is to filter out deeply nested templates
+// there may be a way to do this with datalog but I kept getting false positives
+function iterateJSON(obj) {
+    for (let key in obj) {
+        if (obj.hasOwnProperty(key)) {
+        
+        if (key=='title'&& templatePages.includes(obj[key])) {
+            return true;
+        }
+        if (typeof obj[key] === "object") {
+        //   console.log("--OBJECT")
+        if (iterateJSON(obj[key])) {
+            return true;
+            }
+        }
+        }
+    }
+    return false;
+}
 
 async function onload({extensionAPI}) {
     function hideTagStyle() {
@@ -169,8 +192,15 @@ async function onload({extensionAPI}) {
             await extensionAPI.settings.get('attribute'),
             await extensionAPI.settings.get('tag')
             )
+
+        let filteredBlocksNoAttribute = [];
+        pageRefsNoAttribute.forEach(element => {
+            if (!iterateJSON(element)) {
+                filteredBlocksNoAttribute.push(element)
+            }
+        });
+
         // for each block check if it's older than the self-destruct limit. If so delete the block
-        // I only check this on plugin load. This seems far simpler since I assume most people don't keep roam open infinitely 
 
         pageRefsNoAttribute.forEach(block => {
             let createTime = block['time'];
@@ -191,7 +221,14 @@ async function onload({extensionAPI}) {
             await extensionAPI.settings.get('attribute'),
             await await extensionAPI.settings.get('tag')
         );
-        blockWithAttribute.forEach(block => {
+
+        let filteredBlocksWithAttribute = [];
+        blockWithAttribute.forEach(element => {
+            if (!iterateJSON(element)) {
+                filteredBlocksWithAttribute.push(element)
+            }
+        });
+        filteredBlocksWithAttribute.forEach(block => {
             // split out the custom time delay from  ATTRIBUTE::VALUE
             let numDays = block['string'].split("::")[1];
             numDays = Number(numDays);
