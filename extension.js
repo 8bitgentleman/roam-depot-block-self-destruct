@@ -4,9 +4,9 @@ var runners = {
     intervals: [],
 }
 // dev
-const pluginStyleID = "plugin-style-uuida27d5cc2-8e61-4533-8c80-f47f555e9286"
+// const pluginStyleID = "plugin-style-uuida27d5cc2-8e61-4533-8c80-f47f555e9286"
 // production
-// const pluginStyleID = "plugin-style-8bitgentleman+self-destructing-blocks"
+const pluginStyleID = "plugin-style-8bitgentleman+self-destructing-blocks"
 const  pluginTagStyleID = `plugin-style-8bitgentleman+self-destructing-blocks+hide-tag`
 
 const templatePages = ["roam/templates", "Smartblock", "42SmartBlock"];
