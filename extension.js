@@ -4,7 +4,7 @@ var runners = {
     intervals: [],
 }
 // dev
-// const pluginStyleID = "plugin-style-uuida27d5cc2-8e61-4533-8c80-f47f555e9286"
+// const pluginStyleID = "plugin-style-uuiddfbe5123-88fa-4b25-8799-dde21c1c86f8"
 // production
 const pluginStyleID = "plugin-style-8bitgentleman+self-destructing-blocks"
 const  pluginTagStyleID = `plugin-style-8bitgentleman+self-destructing-blocks+hide-tag`
@@ -131,6 +131,9 @@ async function onload({extensionAPI}) {
     if (!extensionAPI.settings.get('timer')) {
         await extensionAPI.settings.set('timer', 1);
     }
+    if (!extensionAPI.settings.get('log-page')) {
+        await extensionAPI.settings.set('log-page', false);
+    }
     if (extensionAPI.settings.get('hide-tag')==true) {
         hideTagStyle()
     }
@@ -177,7 +180,11 @@ async function onload({extensionAPI}) {
                             } else{
                                removeTagStyle(pluginTagStyleID)
                             }
-                            }}}
+                            }}},
+            {id:         "log-page",
+            name:        "Log Page",
+            description: "Creates the page [[Self Destruct Log]] to keep track of every time the plugin runs and how many blocks were removed",
+            action:      {type:     "switch"}}
         ]
     };
 
@@ -187,6 +194,7 @@ async function onload({extensionAPI}) {
     // define the self destruction as a seperate function
     // this is within onload so it can access the extensionAPI
     async function selfDestruct(){
+        let deletedBlocks = []
         // first find all the refs for the self-destruct page without a custom attribute
         let pageRefsNoAttribute = getPageRefsNoAttribute(
             await extensionAPI.settings.get('attribute'),
@@ -211,6 +219,7 @@ async function onload({extensionAPI}) {
                 // if block is older than the timer delete it
                 window.roamAlphaAPI.deleteBlock({"block":{"uid": block['uid']}})
                 console.log(`self-destricting block ${block['uid']} - ${offsetTime} days old`);
+                deletedBlocks.push(block)
             }
         });
         // bit more complicated for blocks with custom attributes
@@ -247,6 +256,7 @@ async function onload({extensionAPI}) {
                 parents.forEach(parent => {
                     window.roamAlphaAPI.deleteBlock({"block":{"uid": parent['uid']}})
                     console.log(`self-destricting block ${parent['uid']} - ${offsetTime} ms old`);
+                    deletedBlocks.push(parent)
                 })
                 
             }
@@ -254,6 +264,32 @@ async function onload({extensionAPI}) {
             }
             
         });
+        
+        if (extensionAPI.settings.get('log-page')==true && deletedBlocks.length>0) {
+            const deletedUIDs = deletedBlocks.map(obj => obj.uid);
+            let blockUIDs = deletedUIDs.join("`, `");
+            blockUIDs = "`" + blockUIDs + "`";
+            const phrase = (deletedUIDs.length > 1) ? 'blocks' : 'block';
+            const time12hr = new Date().toLocaleString('en-US', { hour: 'numeric', minute: 'numeric', second: 'numeric', hour12: true });
+            const DNP = roamAlphaAPI.util.dateToPageTitle(new Date);
+            let blockString = `💣 ${deletedUIDs.length.toString()} ${phrase} self-destructed on [[${DNP}]] at ${time12hr}. Deleted blocks:\n ${blockUIDs}`
+            let logPage = "Self-Destruct Log";
+            try{
+                await roamAlphaAPI.createPage({"page":{"title": 'Self-Destruct Log'}});
+            } catch (error) {
+            // code to handle the exception
+            console.error('Page already exists');
+            }
+            
+            let logUID = window.roamAlphaAPI.data.pull("[:block/uid]", [":node/title", logPage])[':block/uid']
+                
+            roamAlphaAPI.createBlock(
+                {"location": 
+                    {"parent-uid": logUID, 
+                    "order": 0}, 
+                "block": 
+                    {"string": blockString}})
+        }
 
     }
 
