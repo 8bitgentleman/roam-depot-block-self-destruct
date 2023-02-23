@@ -4,12 +4,12 @@ var runners = {
     intervals: [],
 }
 // dev
-// const pluginStyleID = "plugin-style-uuiddfbe5123-88fa-4b25-8799-dde21c1c86f8"
+// const pluginStyleID = "plugin-style-uuid8a41b727-e9b4-4da3-9dad-4120b4c5c59c"
 // production
 const pluginStyleID = "plugin-style-8bitgentleman+self-destructing-blocks"
 const  pluginTagStyleID = `plugin-style-8bitgentleman+self-destructing-blocks+hide-tag`
 
-const templatePages = ["roam/templates", "Smartblock", "42SmartBlock"];
+const templatePages = ["roam/templates", "SmartBlock", "42SmartBlock"];
 
 function timeButton({ extensionAPI }) {
     // Declare a new state variable, which we'll call "count"
