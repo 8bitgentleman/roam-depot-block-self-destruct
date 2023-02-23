@@ -1,3 +1,7 @@
+## 02-23-2023
+### Fixed
+Typo in smartblock template detection
+
 ## 02-21-2023
 ### Added
 Added an optional [[Self-Destruct Log]] page for a user to track when the extension deletes blocks.
