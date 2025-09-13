@@ -322,9 +322,11 @@ async function onload({extensionAPI}) {
         await extensionAPI.settings.set('tag', "self-destruct");
     } else{
         let style = document.getElementById(pluginStyleID);
-        // swap out the style to target the existing tag
-        style.innerHTML = style.innerHTML.replace(/span\.rm-page-ref--tag\[data-tag="[^"]+"\]/g, `span.rm-page-ref--tag[data-tag="${extensionAPI.settings.get('tag')}"]`)
-        style.innerHTML = style.innerHTML.replace(/span\[data-link-title="[^"]+"\]/g, `span[data-link-title="${extensionAPI.settings.get('tag')}"]`);
+        if (style) {
+            // swap out the style to target the existing tag
+            style.innerHTML = style.innerHTML.replace(/span\.rm-page-ref--tag\[data-tag="[^"]+"\]/g, `span.rm-page-ref--tag[data-tag="${extensionAPI.settings.get('tag')}"]`)
+            style.innerHTML = style.innerHTML.replace(/span\[data-link-title="[^"]+"\]/g, `span[data-link-title="${extensionAPI.settings.get('tag')}"]`);
+        }
     }
     if (!extensionAPI.settings.get('attribute')) {
         await extensionAPI.settings.set('attribute', "Destruct Delay");
