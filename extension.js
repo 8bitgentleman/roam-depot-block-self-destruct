@@ -9,7 +9,24 @@ var runners = {
 const pluginStyleID = "plugin-style-8bitgentleman+self-destructing-blocks"
 const  pluginTagStyleID = `plugin-style-8bitgentleman+self-destructing-blocks+hide-tag`
 
-const templatePages = ["roam/templates", "SmartBlock", "42SmartBlock"];
+const defaultTemplatePages = ["roam/templates", "SmartBlock", "42SmartBlock"];
+
+function getAllTemplatePages(extensionAPI) {
+    const customEnabled = extensionAPI.settings.get('custom-templates-enabled');
+    const customPages = extensionAPI.settings.get('custom-template-pages') || '';
+
+    let allTemplatePages = [...defaultTemplatePages];
+
+    if (customEnabled && customPages.trim()) {
+        const customPagesArray = customPages
+            .split(',')
+            .map(page => page.trim())
+            .filter(page => page && page.length > 0 && !/[<>:"\\|?*]/.test(page));
+        allTemplatePages = [...allTemplatePages, ...customPagesArray];
+    }
+
+    return allTemplatePages;
+}
 
 function timeButton({ extensionAPI }) {
     // Declare a new state variable, which we'll call "count"
@@ -23,10 +40,56 @@ function timeButton({ extensionAPI }) {
             min:1,
             value: count,
             placeholder:count,
-            onChange:	(evt) => { 
+            onChange:	(evt) => {
                 setCount(evt.target.value)
                 extensionAPI.settings.set('timer', evt.target.value)
             }},
+        )
+    );
+}
+
+function customTemplateInput({ extensionAPI }) {
+    const [enabled, setEnabled] = React.useState(extensionAPI.settings.get('custom-templates-enabled') || false);
+    const [customPages, setCustomPages] = React.useState(extensionAPI.settings.get('custom-template-pages') || '');
+    const timeoutRef = React.useRef(null);
+
+    const handleCustomPagesChange = (value) => {
+        setCustomPages(value);
+        if (timeoutRef.current) clearTimeout(timeoutRef.current);
+        timeoutRef.current = setTimeout(() => {
+            extensionAPI.settings.set('custom-template-pages', value);
+        }, 300);
+    };
+
+    return React.createElement(
+        "div",
+        null,
+        React.createElement(
+            "label",
+            { className: "bp3-control bp3-switch", style: { marginBottom: "10px" } },
+            React.createElement("input", {
+                type: "checkbox",
+                checked: enabled,
+                onChange: (evt) => {
+                    const isChecked = evt.target.checked;
+                    setEnabled(isChecked);
+                    extensionAPI.settings.set('custom-templates-enabled', isChecked);
+                }
+            }),
+            React.createElement("span", { className: "bp3-control-indicator" })
+        ),
+        enabled && React.createElement(
+            "input",
+            {
+                className: "bp3-input",
+                type: "text",
+                placeholder: "Enter page names separated by commas",
+                value: customPages,
+                style: { width: "100%", marginTop: "5px" },
+                onChange: (evt) => {
+                    handleCustomPagesChange(evt.target.value);
+                }
+            }
         )
     );
 }
@@ -84,16 +147,16 @@ function removeTagStyle(tag) {
 // loop through all the parents of a block searching for template pages
 // this is to filter out deeply nested templates
 // there may be a way to do this with datalog but I kept getting false positives
-function iterateJSON(obj) {
+function iterateJSON(obj, templatePages) {
     for (let key in obj) {
         if (obj.hasOwnProperty(key)) {
-        
+
         if (key=='title'&& templatePages.includes(obj[key])) {
             return true;
         }
         if (typeof obj[key] === "object") {
         //   console.log("--OBJECT")
-        if (iterateJSON(obj[key])) {
+        if (iterateJSON(obj[key], templatePages)) {
             return true;
             }
         }
@@ -134,12 +197,19 @@ async function onload({extensionAPI}) {
     if (!extensionAPI.settings.get('log-page')) {
         await extensionAPI.settings.set('log-page', false);
     }
+    if (!extensionAPI.settings.get('custom-templates-enabled')) {
+        extensionAPI.settings.set('custom-templates-enabled', false);
+    }
+    if (!extensionAPI.settings.get('custom-template-pages')) {
+        extensionAPI.settings.set('custom-template-pages', '');
+    }
     if (extensionAPI.settings.get('hide-tag')==true) {
         hideTagStyle()
     }
 
     // wrap the react component so it can access extensionAPI
     const wrappedTimeConfig = () => timeButton({ extensionAPI });
+    const wrappedCustomTemplateConfig = () => customTemplateInput({ extensionAPI });
     const panelConfig = {
         tabTitle: "Self-Destructing Blocks",
         settings: [
@@ -184,7 +254,13 @@ async function onload({extensionAPI}) {
             {id:         "log-page",
             name:        "Log Page",
             description: "Creates the page [[Self Destruct Log]] to keep track of every time the plugin runs and how many blocks were removed",
-            action:      {type:     "switch"}}
+            action:      {type:     "switch"}},
+
+            {id:         "custom-template-pages",
+            name:        "Custom Template Pages",
+            description: "Add your own template pages that will be ignored during self-destruction (in addition to the default roam/templates, SmartBlock, and 42SmartBlock pages)",
+            action:      {type:     "reactComponent",
+                          component: wrappedCustomTemplateConfig}}
         ]
     };
 
@@ -195,6 +271,10 @@ async function onload({extensionAPI}) {
     // this is within onload so it can access the extensionAPI
     async function selfDestruct(){
         let deletedBlocks = []
+        // get combined template pages list (default + custom)
+        const allTemplatePages = getAllTemplatePages(extensionAPI);
+        console.log("all template pages: ", allTemplatePages);
+        
         // first find all the refs for the self-destruct page without a custom attribute
         let pageRefsNoAttribute = getPageRefsNoAttribute(
             await extensionAPI.settings.get('attribute'),
@@ -203,7 +283,7 @@ async function onload({extensionAPI}) {
 
         let filteredBlocksNoAttribute = [];
         pageRefsNoAttribute.forEach(element => {
-            if (!iterateJSON(element)) {
+            if (!iterateJSON(element, allTemplatePages)) {
                 filteredBlocksNoAttribute.push(element)
             }
         });
@@ -228,12 +308,12 @@ async function onload({extensionAPI}) {
         //        -Destruct Delay::3
         let blockWithAttribute = getBlockWithAttribute(
             await extensionAPI.settings.get('attribute'),
-            await await extensionAPI.settings.get('tag')
+            await extensionAPI.settings.get('tag')
         );
 
         let filteredBlocksWithAttribute = [];
         blockWithAttribute.forEach(element => {
-            if (!iterateJSON(element)) {
+            if (!iterateJSON(element, allTemplatePages)) {
                 filteredBlocksWithAttribute.push(element)
             }
         });
