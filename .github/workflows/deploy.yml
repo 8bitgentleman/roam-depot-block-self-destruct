@@ -28,8 +28,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v3
-      - name: Build the roam extension
-        run: chmod +x build.sh && ./build.sh
       - name: move the extension files to deploy/ directory
         run: mkdir deploy ; cp extension.js deploy/ ; cp extension.css deploy/ | true ; cp README.md deploy/ ; cp CHANGELOG.md deploy/ | true ; echo "OK"
       - name: Setup Pages
