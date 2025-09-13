@@ -13,19 +13,24 @@ const defaultTemplatePages = ["roam/templates", "SmartBlock", "42SmartBlock"];
 
 function getAllTemplatePages(extensionAPI) {
     const customEnabled = extensionAPI.settings.get('custom-templates-enabled');
-    const customPages = extensionAPI.settings.get('custom-template-pages') || '';
+    const customPages = extensionAPI.settings.get('custom-template-pages') || [];
 
     let allTemplatePages = [...defaultTemplatePages];
 
-    if (customEnabled && customPages.trim()) {
-        const customPagesArray = customPages
-            .split(',')
-            .map(page => page.trim())
-            .filter(page => page && page.length > 0 && !/[<>:"\\|?*]/.test(page));
-        allTemplatePages = [...allTemplatePages, ...customPagesArray];
+    if (customEnabled && Array.isArray(customPages) && customPages.length > 0) {
+        allTemplatePages = [...allTemplatePages, ...customPages];
     }
 
     return allTemplatePages;
+}
+
+function getAllPages() {
+    try {
+        return window.roamAlphaAPI.q(`[:find ?title :where [?page :node/title ?title]]`).flat();
+    } catch (error) {
+        console.error('Error getting pages:', error);
+        return [];
+    }
 }
 
 function timeButton({ extensionAPI }) {
@@ -50,15 +55,64 @@ function timeButton({ extensionAPI }) {
 
 function customTemplateInput({ extensionAPI }) {
     const [enabled, setEnabled] = React.useState(extensionAPI.settings.get('custom-templates-enabled') || false);
-    const [customPages, setCustomPages] = React.useState(extensionAPI.settings.get('custom-template-pages') || '');
-    const timeoutRef = React.useRef(null);
+    const [customPages, setCustomPages] = React.useState(extensionAPI.settings.get('custom-template-pages') || []);
+    const [inputValue, setInputValue] = React.useState('');
+    const [suggestions, setSuggestions] = React.useState([]);
+    const [showSuggestions, setShowSuggestions] = React.useState(false);
 
-    const handleCustomPagesChange = (value) => {
-        setCustomPages(value);
-        if (timeoutRef.current) clearTimeout(timeoutRef.current);
-        timeoutRef.current = setTimeout(() => {
-            extensionAPI.settings.set('custom-template-pages', value);
-        }, 300);
+    const handleToggleChange = (isChecked) => {
+        setEnabled(isChecked);
+        extensionAPI.settings.set('custom-templates-enabled', isChecked);
+
+        if (!isChecked) {
+            setCustomPages([]);
+            extensionAPI.settings.set('custom-template-pages', []);
+        }
+    };
+
+    const handleInputChange = (value) => {
+        setInputValue(value);
+
+        if (value.length > 0) {
+            const allPages = getAllPages();
+            const filteredSuggestions = allPages
+                .filter(page =>
+                    page.toLowerCase().includes(value.toLowerCase()) &&
+                    !customPages.includes(page) &&
+                    !defaultTemplatePages.includes(page)
+                )
+                .slice(0, 10);
+            setSuggestions(filteredSuggestions);
+            setShowSuggestions(true);
+        } else {
+            setSuggestions([]);
+            setShowSuggestions(false);
+        }
+    };
+
+    const addTemplatePage = (pageName) => {
+        const updatedPages = [...customPages, pageName];
+        setCustomPages(updatedPages);
+        extensionAPI.settings.set('custom-template-pages', updatedPages);
+        setInputValue('');
+        setShowSuggestions(false);
+    };
+
+    const removeTemplatePage = (pageToRemove) => {
+        const updatedPages = customPages.filter(page => page !== pageToRemove);
+        setCustomPages(updatedPages);
+        extensionAPI.settings.set('custom-template-pages', updatedPages);
+    };
+
+    const handleKeyDown = (evt) => {
+        if (evt.key === 'Enter' && inputValue.trim()) {
+            evt.preventDefault();
+            if (suggestions.length > 0) {
+                addTemplatePage(suggestions[0]);
+            } else if (inputValue.trim() && !customPages.includes(inputValue.trim())) {
+                addTemplatePage(inputValue.trim());
+            }
+        }
     };
 
     return React.createElement(
@@ -70,26 +124,110 @@ function customTemplateInput({ extensionAPI }) {
             React.createElement("input", {
                 type: "checkbox",
                 checked: enabled,
-                onChange: (evt) => {
-                    const isChecked = evt.target.checked;
-                    setEnabled(isChecked);
-                    extensionAPI.settings.set('custom-templates-enabled', isChecked);
-                }
+                onChange: (evt) => handleToggleChange(evt.target.checked)
             }),
             React.createElement("span", { className: "bp3-control-indicator" })
         ),
+
         enabled && React.createElement(
-            "input",
-            {
-                className: "bp3-input",
-                type: "text",
-                placeholder: "Enter page names separated by commas",
-                value: customPages,
-                style: { width: "100%", marginTop: "5px" },
-                onChange: (evt) => {
-                    handleCustomPagesChange(evt.target.value);
-                }
-            }
+            "div",
+            { style: { marginTop: "10px" } },
+
+            React.createElement(
+                "div",
+                { style: { position: "relative", marginBottom: "10px" } },
+                React.createElement("input", {
+                    className: "bp3-input",
+                    type: "text",
+                    placeholder: "Add template page...",
+                    value: inputValue,
+                    style: { width: "100%" },
+                    onChange: (evt) => handleInputChange(evt.target.value),
+                    onKeyDown: handleKeyDown,
+                    onFocus: () => inputValue.length > 0 && setShowSuggestions(true),
+                    onBlur: () => setTimeout(() => setShowSuggestions(false), 150)
+                }),
+
+                showSuggestions && suggestions.length > 0 && React.createElement(
+                    "div",
+                    {
+                        style: {
+                            position: "absolute",
+                            top: "100%",
+                            left: "0",
+                            right: "0",
+                            backgroundColor: "white",
+                            border: "1px solid #ccc",
+                            color: "black",
+                            borderRadius: "3px",
+                            maxHeight: "200px",
+                            overflowY: "auto",
+                            zIndex: 1000,
+                            boxShadow: "0 2px 4px rgba(0,0,0,0.1)"
+                        }
+                    },
+                    suggestions.map(suggestion =>
+                        React.createElement(
+                            "div",
+                            {
+                                key: suggestion,
+                                style: {
+                                    padding: "8px 12px",
+                                    cursor: "pointer",
+                                    borderBottom: "1px solid #eee"
+                                },
+                                onMouseDown: () => addTemplatePage(suggestion),
+                                onMouseEnter: (e) => e.target.style.backgroundColor = "#f5f5f5",
+                                onMouseLeave: (e) => e.target.style.backgroundColor = "white"
+                            },
+                            suggestion
+                        )
+                    )
+                )
+            ),
+
+            customPages.length > 0 && React.createElement(
+                "div",
+                { style: { marginTop: "10px" } },
+
+                customPages.map(page =>
+                    React.createElement(
+                        "div",
+                        {
+                            key: page,
+                            style: {
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "space-between",
+                                padding: "4px 8px",
+                                marginBottom: "4px",
+                                backgroundColor: "#30404D",
+                                borderRadius: "5px",
+                                border: "solid 1px #293742",
+                                fontSize: "1em"
+                            }
+                        },
+                        React.createElement("span", null, page),
+                        React.createElement(
+                            "button",
+                            {
+                                style: {
+                                    background: "none",
+                                    border: "none",
+                                    color: "#999",
+                                    cursor: "pointer",
+                                    fontSize: "16px",
+                                    lineHeight: "1"
+                                },
+                                onClick: () => removeTemplatePage(page),
+                                onMouseEnter: (e) => e.target.style.color = "#666",
+                                onMouseLeave: (e) => e.target.style.color = "#999"
+                            },
+                            "×"
+                        )
+                    )
+                )
+            )
         )
     );
 }
@@ -201,7 +339,7 @@ async function onload({extensionAPI}) {
         extensionAPI.settings.set('custom-templates-enabled', false);
     }
     if (!extensionAPI.settings.get('custom-template-pages')) {
-        extensionAPI.settings.set('custom-template-pages', '');
+        extensionAPI.settings.set('custom-template-pages', []);
     }
     if (extensionAPI.settings.get('hide-tag')==true) {
         hideTagStyle()
