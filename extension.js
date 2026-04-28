@@ -343,6 +343,9 @@ async function onload({extensionAPI}) {
     if (!extensionAPI.settings.get('custom-template-pages')) {
         extensionAPI.settings.set('custom-template-pages', []);
     }
+    if (extensionAPI.settings.get('exempt-tag') === undefined) {
+        extensionAPI.settings.set('exempt-tag', '');
+    }
     if (extensionAPI.settings.get('hide-tag')==true) {
         hideTagStyle()
     }
@@ -400,13 +403,25 @@ async function onload({extensionAPI}) {
             name:        "Custom Template Pages",
             description: "Add your own template pages that will be ignored during self-destruction (in addition to the default roam/templates, SmartBlock, and 42SmartBlock pages)",
             action:      {type:     "reactComponent",
-                          component: wrappedCustomTemplateConfig}}
+                          component: wrappedCustomTemplateConfig}},
+
+            {id:         "exempt-tag",
+            name:        "Exempt Tag",
+            description: "Blocks tagged with this will never be self-destructed, even if they also have the self-destruct tag",
+            action:      {type:     "input",
+                          placeholder: "exempt"}}
         ]
     };
 
 
     extensionAPI.settings.panel.create(panelConfig);
     
+    function isExempt(blockString, exemptTag) {
+        if (!exemptTag) return false;
+        let pattern = new RegExp(`#${exemptTag}|\\[\\[${exemptTag}\\]\\]|#\\[\\[${exemptTag}\\]\\]`, "i");
+        return pattern.test(blockString || '');
+    }
+
     // define the self destruction as a seperate function
     // this is within onload so it can access the extensionAPI
     async function selfDestruct(){
@@ -414,6 +429,7 @@ async function onload({extensionAPI}) {
         // get combined template pages list (default + custom)
         const allTemplatePages = getAllTemplatePages(extensionAPI);
         console.log("all template pages: ", allTemplatePages);
+        const exemptTag = extensionAPI.settings.get('exempt-tag') || '';
         
         // first find all the refs for the self-destruct page without a custom attribute
         let pageRefsNoAttribute = getPageRefsNoAttribute(
@@ -435,7 +451,7 @@ async function onload({extensionAPI}) {
             let numDays = extensionAPI.settings.get('timer')
             // convert to days and do time math
             let offsetTime = new Date().getTime() - (numDays * 24 * 60 * 60 * 1000)
-            if (createTime<offsetTime) {
+            if (createTime<offsetTime && !isExempt(block['string'], exemptTag)) {
                 // if block is older than the timer delete it
                 window.roamAlphaAPI.deleteBlock({"block":{"uid": block['uid']}})
                 console.log(`self-destricting block ${block['uid']} - ${offsetTime} days old`);
@@ -474,6 +490,7 @@ async function onload({extensionAPI}) {
                 let parents = block.parents.filter(child => child.string && pattern.test(child.string));
                 //cycle through and delete all the blocks that match
                 parents.forEach(parent => {
+                    if (isExempt(parent['string'], exemptTag)) return;
                     window.roamAlphaAPI.deleteBlock({"block":{"uid": parent['uid']}})
                     console.log(`self-destricting block ${parent['uid']} - ${offsetTime} ms old`);
                     deletedBlocks.push(parent)
@@ -486,29 +503,29 @@ async function onload({extensionAPI}) {
         });
         
         if (extensionAPI.settings.get('log-page')==true && deletedBlocks.length>0) {
-            const deletedUIDs = deletedBlocks.map(obj => obj.uid);
-            let blockUIDs = deletedUIDs.join("`, `");
-            blockUIDs = "`" + blockUIDs + "`";
-            const phrase = (deletedUIDs.length > 1) ? 'blocks' : 'block';
+            const phrase = (deletedBlocks.length > 1) ? 'blocks' : 'block';
             const time12hr = new Date().toLocaleString('en-US', { hour: 'numeric', minute: 'numeric', second: 'numeric', hour12: true });
             const DNP = roamAlphaAPI.util.dateToPageTitle(new Date);
-            let blockString = `💣 ${deletedUIDs.length.toString()} ${phrase} self-destructed on [[${DNP}]] at ${time12hr}. Deleted blocks:\n ${blockUIDs}`
+            let summaryString = `💣 ${deletedBlocks.length} ${phrase} self-destructed on [[${DNP}]] at ${time12hr}`
             let logPage = "Self-Destruct Log";
             try{
                 await roamAlphaAPI.createPage({"page":{"title": 'Self-Destruct Log'}});
             } catch (error) {
-            // code to handle the exception
             console.error('Page already exists');
             }
-            
+
             let logUID = window.roamAlphaAPI.data.pull("[:block/uid]", [":node/title", logPage])[':block/uid']
-                
-            roamAlphaAPI.createBlock(
-                {"location": 
-                    {"parent-uid": logUID, 
-                    "order": 0}, 
-                "block": 
-                    {"string": blockString}})
+            const summaryUID = window.roamAlphaAPI.util.generateUID();
+            await roamAlphaAPI.createBlock(
+                {"location": {"parent-uid": logUID, "order": 0},
+                 "block":    {"string": summaryString, "uid": summaryUID}})
+
+            for (let i = 0; i < deletedBlocks.length; i++) {
+                const b = deletedBlocks[i];
+                await roamAlphaAPI.createBlock(
+                    {"location": {"parent-uid": summaryUID, "order": i},
+                     "block":    {"string": b['string'] || `(uid: ${b['uid']})`}})
+            }
         }
 
     }
