@@ -1,6 +1,8 @@
 ## 07-10-2026
 ### Added
 Custom Template Pages setting to ignore additional user-specified pages during self-destruction, in addition to the default roam/templates, SmartBlock, and 42SmartBlock pages.
+Exempt Tag setting to protect individual blocks from self-destruction even when they carry the self-destruct tag.
+Log Deleted Content setting, an opt-in that copies the full text of each deleted block to [[Self-Destruct Log]] and keeps it there permanently; the log page is now excluded from self-destruction so logging can no longer feed on itself.
 
 ## 02-23-2023
 ### Fixed

@@ -4,6 +4,10 @@ A custom deletion time can be set by nesting an attribute below the block that y
 
 If you use other template pages of your own, add them under the **Custom Template Pages** setting in the extension settings panel and they'll be ignored the same way as the default template pages.
 
+Set an **Exempt Tag** to protect individual blocks. Any block carrying that tag is never deleted, even if it also has the self-destruct tag.
+
+Turn on **Log Page** to keep a record of every run on `[[Self-Destruct Log]]`. By default it only logs a summary and the UIDs of deleted blocks. Enabling **Log Deleted Content** additionally copies the full text of each deleted block onto that page and keeps it there permanently, so only turn it on if you're fine with that content sticking around. The log page itself is never self-destructed.
+
 ### Use Case Ideas
 - Blocks left over from daily templates 
 - Using queries on your Daily Notes page or old queries in general.
