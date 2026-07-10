@@ -1,3 +1,7 @@
+## 07-10-2026
+### Added
+Custom Template Pages setting to ignore additional user-specified pages during self-destruction, in addition to the default roam/templates, SmartBlock, and 42SmartBlock pages.
+
 ## 02-23-2023
 ### Fixed
 Typo in smartblock template detection

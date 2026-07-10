@@ -2,6 +2,8 @@ Set blocks to self-destruct (be deleted) after a period of time. Every hour the 
 
 A custom deletion time can be set by nesting an attribute below the block that you want deleted.
 
+If you use other template pages of your own, add them under the **Custom Template Pages** setting in the extension settings panel and they'll be ignored the same way as the default template pages.
+
 ### Use Case Ideas
 - Blocks left over from daily templates 
 - Using queries on your Daily Notes page or old queries in general.
