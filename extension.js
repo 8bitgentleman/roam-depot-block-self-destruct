@@ -10,12 +10,17 @@ const pluginStyleID = "plugin-style-8bitgentleman+self-destructing-blocks"
 const  pluginTagStyleID = `plugin-style-8bitgentleman+self-destructing-blocks+hide-tag`
 
 const defaultTemplatePages = ["roam/templates", "SmartBlock", "42SmartBlock"];
+const logPageTitle = "Self-Destruct Log";
+
+function escapeRegExp(str) {
+    return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
 
 function getAllTemplatePages(extensionAPI) {
     const customEnabled = extensionAPI.settings.get('custom-templates-enabled');
     const customPages = extensionAPI.settings.get('custom-template-pages') || [];
 
-    let allTemplatePages = [...defaultTemplatePages];
+    let allTemplatePages = [...defaultTemplatePages, logPageTitle];
 
     if (customEnabled && Array.isArray(customPages) && customPages.length > 0) {
         allTemplatePages = [...allTemplatePages, ...customPages];
@@ -244,9 +249,11 @@ function getPageRefsNoAttribute(attribute, pageName){
     (not [?SmartBlock :node/title "SmartBlock"] [?node :block/refs ?SmartBlock])
     (not [?roamtemplates :node/title "roam/templates"] [?node :block/refs ?roamtemplates])
     (not [?42SmartBlock :node/title "42SmartBlock"] [?node :block/refs ?42SmartBlock])
+    (not [?SelfDestructLog :node/title "Self-Destruct Log"] [?node :block/refs ?SelfDestructLog])
     (not [?roamtemplates :node/title "roam/templates"] [?node :block/page ?roamtemplates])
     (not [?SmartBlock :node/title "SmartBlock"] [?node :block/page ?SmartBlock])
     (not [?42SmartBlock :node/title "42SmartBlock"] [?node :block/page ?42SmartBlock])
+    (not [?SelfDestructLog :node/title "Self-Destruct Log"] [?node :block/page ?SelfDestructLog])
     ]`
 
     let result = window.roamAlphaAPI.q(query,attribute, pageName).flat();
@@ -267,9 +274,11 @@ function getBlockWithAttribute(attribute, pageName){
             (not [?roamtemplates :node/title "roam/templates"] [?Parent :block/refs ?roamtemplates])
             (not [?42SmartBlock :node/title "42SmartBlock"] [?Parent :block/refs ?42SmartBlock])
             (not [?SmartBlock :node/title "SmartBlock"] [?Parent :block/refs ?SmartBlock])
+            (not [?SelfDestructLog :node/title "Self-Destruct Log"] [?Parent :block/refs ?SelfDestructLog])
             (not [?roamtemplates :node/title "roam/templates"] [?node :block/page ?roamtemplates])
             (not [?SmartBlock :node/title "SmartBlock"] [?node :block/page ?SmartBlock])
             (not [?42SmartBlock :node/title "42SmartBlock"] [?node :block/page ?42SmartBlock])
+            (not [?SelfDestructLog :node/title "Self-Destruct Log"] [?node :block/page ?SelfDestructLog])
         ]`
     let result = window.roamAlphaAPI.q(query,attribute, pageName).flat();
             
@@ -337,6 +346,9 @@ async function onload({extensionAPI}) {
     if (!extensionAPI.settings.get('log-page')) {
         await extensionAPI.settings.set('log-page', false);
     }
+    if (!extensionAPI.settings.get('log-content')) {
+        await extensionAPI.settings.set('log-content', false);
+    }
     if (!extensionAPI.settings.get('custom-templates-enabled')) {
         extensionAPI.settings.set('custom-templates-enabled', false);
     }
@@ -396,7 +408,12 @@ async function onload({extensionAPI}) {
                             }}},
             {id:         "log-page",
             name:        "Log Page",
-            description: "Creates the page [[Self Destruct Log]] to keep track of every time the plugin runs and how many blocks were removed",
+            description: "Creates the page [[Self-Destruct Log]] to keep track of every time the plugin runs and how many blocks were removed",
+            action:      {type:     "switch"}},
+
+            {id:         "log-content",
+            name:        "Log Deleted Content",
+            description: "When Log Page is enabled, also copies the full text of each deleted block to [[Self-Destruct Log]] and keeps it there permanently. Has no effect unless Log Page is enabled.",
             action:      {type:     "switch"}},
 
             {id:         "custom-template-pages",
@@ -418,7 +435,8 @@ async function onload({extensionAPI}) {
     
     function isExempt(blockString, exemptTag) {
         if (!exemptTag) return false;
-        let pattern = new RegExp(`#${exemptTag}|\\[\\[${exemptTag}\\]\\]|#\\[\\[${exemptTag}\\]\\]`, "i");
+        let t = escapeRegExp(exemptTag);
+        let pattern = new RegExp(`#${t}(?![\\w/-])|\\[\\[${t}\\]\\]`, "i");
         return pattern.test(blockString || '');
     }
 
@@ -486,7 +504,8 @@ async function onload({extensionAPI}) {
                 //find the parent block that actually contains the self-destruct tag and delete that
                 let tag = extensionAPI.settings.get('tag');
                 //searching with regex for any of the various roam page/tag syntax
-                let pattern = new RegExp(`#${tag}|\\[\\[${tag}\\]\\]|#\\[\\[${tag}\\]\\]`, "i");
+                let escapedTag = escapeRegExp(tag);
+                let pattern = new RegExp(`#${escapedTag}|\\[\\[${escapedTag}\\]\\]|#\\[\\[${escapedTag}\\]\\]`, "i");
                 let parents = block.parents.filter(child => child.string && pattern.test(child.string));
                 //cycle through and delete all the blocks that match
                 parents.forEach(parent => {
@@ -503,28 +522,52 @@ async function onload({extensionAPI}) {
         });
         
         if (extensionAPI.settings.get('log-page')==true && deletedBlocks.length>0) {
-            const phrase = (deletedBlocks.length > 1) ? 'blocks' : 'block';
-            const time12hr = new Date().toLocaleString('en-US', { hour: 'numeric', minute: 'numeric', second: 'numeric', hour12: true });
-            const DNP = roamAlphaAPI.util.dateToPageTitle(new Date);
-            let summaryString = `💣 ${deletedBlocks.length} ${phrase} self-destructed on [[${DNP}]] at ${time12hr}`
-            let logPage = "Self-Destruct Log";
-            try{
-                await roamAlphaAPI.createPage({"page":{"title": 'Self-Destruct Log'}});
-            } catch (error) {
-            console.error('Page already exists');
-            }
+            if (extensionAPI.settings.get('log-content')==true) {
+                const phrase = (deletedBlocks.length > 1) ? 'blocks' : 'block';
+                const time12hr = new Date().toLocaleString('en-US', { hour: 'numeric', minute: 'numeric', second: 'numeric', hour12: true });
+                const DNP = roamAlphaAPI.util.dateToPageTitle(new Date);
+                let summaryString = `💣 ${deletedBlocks.length} ${phrase} self-destructed on [[${DNP}]] at ${time12hr}`
+                try{
+                    await roamAlphaAPI.createPage({"page":{"title": logPageTitle}});
+                } catch (error) {
+                console.error('Page already exists');
+                }
 
-            let logUID = window.roamAlphaAPI.data.pull("[:block/uid]", [":node/title", logPage])[':block/uid']
-            const summaryUID = window.roamAlphaAPI.util.generateUID();
-            await roamAlphaAPI.createBlock(
-                {"location": {"parent-uid": logUID, "order": 0},
-                 "block":    {"string": summaryString, "uid": summaryUID}})
-
-            for (let i = 0; i < deletedBlocks.length; i++) {
-                const b = deletedBlocks[i];
+                let logUID = window.roamAlphaAPI.data.pull("[:block/uid]", [":node/title", logPageTitle])[':block/uid']
+                const summaryUID = window.roamAlphaAPI.util.generateUID();
                 await roamAlphaAPI.createBlock(
-                    {"location": {"parent-uid": summaryUID, "order": i},
-                     "block":    {"string": b['string'] || `(uid: ${b['uid']})`}})
+                    {"location": {"parent-uid": logUID, "order": 0},
+                     "block":    {"string": summaryString, "uid": summaryUID}})
+
+                for (let i = 0; i < deletedBlocks.length; i++) {
+                    const b = deletedBlocks[i];
+                    await roamAlphaAPI.createBlock(
+                        {"location": {"parent-uid": summaryUID, "order": i},
+                         "block":    {"string": b['string'] || `(uid: ${b['uid']})`}})
+                }
+            } else {
+                const deletedUIDs = deletedBlocks.map(obj => obj.uid);
+                let blockUIDs = deletedUIDs.join("`, `");
+                blockUIDs = "`" + blockUIDs + "`";
+                const phrase = (deletedUIDs.length > 1) ? 'blocks' : 'block';
+                const time12hr = new Date().toLocaleString('en-US', { hour: 'numeric', minute: 'numeric', second: 'numeric', hour12: true });
+                const DNP = roamAlphaAPI.util.dateToPageTitle(new Date);
+                let blockString = `💣 ${deletedUIDs.length.toString()} ${phrase} self-destructed on [[${DNP}]] at ${time12hr}. Deleted blocks:\n ${blockUIDs}`
+                try{
+                    await roamAlphaAPI.createPage({"page":{"title": logPageTitle}});
+                } catch (error) {
+                // code to handle the exception
+                console.error('Page already exists');
+                }
+
+                let logUID = window.roamAlphaAPI.data.pull("[:block/uid]", [":node/title", logPageTitle])[':block/uid']
+
+                roamAlphaAPI.createBlock(
+                    {"location":
+                        {"parent-uid": logUID,
+                        "order": 0},
+                    "block":
+                        {"string": blockString}})
             }
         }
 
